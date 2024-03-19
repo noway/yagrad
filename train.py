@@ -26,6 +26,8 @@ params = lambda m: [m] if isinstance(m, Value) else module_params(m)
 
 
 class Value:
+    __slots__ = ("data", "_deps", "_op", "_calcgrad", "grad")
+
     def __init__(self, data, _deps=(), _op=None, _calcgrad=lambda _: []):
         self.data = data
         self._deps = _deps
@@ -37,6 +39,8 @@ class Value:
 
 
 class Neuron:
+    __slots__ = ("w", "b", "modules")
+
     def __init__(self, input_len):
         self.w = [Value(random.uniform(-1, 1)) for _ in range(input_len)]
         self.b = Value(random.uniform(-1, 1))
@@ -47,6 +51,8 @@ class Neuron:
 
 
 class Layer:
+    __slots__ = ("modules",)
+
     def __init__(self, nin, nout):
         self.modules = [Neuron(nin) for _ in range(nout)]
 
@@ -55,6 +61,8 @@ class Layer:
 
 
 class MultiLayerPerceptron:
+    __slots__ = ("modules",)
+
     def __init__(self, nin, nouts):
         sizes = [nin] + nouts
         self.modules = [Layer(sizes[i], sizes[i + 1]) for i in range(len(nouts))]
