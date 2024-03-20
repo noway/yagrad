@@ -3,17 +3,13 @@ import random
 from functools import reduce
 from graphlib import TopologicalSorter
 
-grad_add = lambda node: [node.grad, node.grad]
-grad_exp = lambda node: [cmath.exp(node._deps[0].data) * node.grad]
-grad_log = lambda node: [node.grad / node._deps[0].data]
-
 op_add = lambda a, b: a.data + b.data
 op_exp = lambda a: cmath.exp(a.data)
 op_log = lambda a: cmath.log(a.data)
 
-add = lambda a, b: Value(op_add(a, b), (a, b), op_add, grad_add)
-exp = lambda a: Value(op_exp(a), (a,), op_exp, grad_exp)
-log = lambda a: Value(op_log(a), (a,), op_log, grad_log)
+add = lambda a, b: Value(op_add(a, b), (a, b), op_add, lambda _: [1, 1])
+exp = lambda a: Value(op_exp(a), (a,), op_exp, lambda a: [op_exp(a._deps[0])])
+log = lambda a: Value(op_log(a), (a,), op_log, lambda a: [1 / a._deps[0].data])
 
 sum = lambda xs: reduce(lambda b, x: add(b, x), xs, Value(0))
 mul = lambda a, b: exp(add(log(a), log(b)))
@@ -26,13 +22,13 @@ params = lambda m: [m] if isinstance(m, Value) else module_params(m)
 
 
 class Value:
-    __slots__ = ("data", "_deps", "_op", "_calcgrad", "grad")
+    __slots__ = ("data", "_deps", "_op", "_deriv", "grad")
 
-    def __init__(self, data, _deps=(), _op=None, _calcgrad=lambda _: []):
+    def __init__(self, data, _deps=(), _op=None, _deriv=lambda _: []):
         self.data = data
         self._deps = _deps
         self._op = _op
-        self._calcgrad = _calcgrad
+        self._deriv = _deriv
 
     def items(self):
         return [(self, self._deps)] + [items for d in self._deps for items in d.items()]
@@ -63,9 +59,8 @@ class Layer:
 class MultiLayerPerceptron:
     __slots__ = ("modules",)
 
-    def __init__(self, nin, nouts):
-        sizes = [nin] + nouts
-        self.modules = [Layer(sizes[i], sizes[i + 1]) for i in range(len(nouts))]
+    def __init__(self, sizes):
+        self.modules = [Layer(sizes[i], sizes[i + 1]) for i in range(len(sizes) - 1)]
 
     def forward(self, x):
         return reduce(lambda x, layer: layer.forward(x), self.modules, x)
@@ -81,14 +76,14 @@ def fit(n, loss, epochs, learning_rate):
                 node.data = node._op(*node._deps)  # forward
         graph[-1].grad = 1  # set grad of loss
         for node in reversed(graph):  # backward
-            for i, grad in enumerate(node._calcgrad(node)):
-                node._deps[i].grad += grad  # auto grad
+            for i, deriv in enumerate(node._deriv(node)):
+                node._deps[i].grad += deriv * node.grad  # auto grad
         for p in wnb:
             p.data -= learning_rate * p.grad  # optim gd
         print(k, loss.data)
 
 
-n = MultiLayerPerceptron(3, [4, 4, 1])
+n = MultiLayerPerceptron([3, 4, 4, 1])
 xs = [
     [Value(2), Value(3), Value(-1)],
     [Value(3), Value(-1), Value(0.5)],
