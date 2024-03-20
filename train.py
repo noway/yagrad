@@ -51,9 +51,8 @@ class Layer:
 
 
 class MultiLayerPerceptron:
-    def __init__(self, nin, nouts):
-        sizes = [nin] + nouts
-        self.modules = [Layer(sizes[i], sizes[i + 1]) for i in range(len(nouts))]
+    def __init__(self, sizes):
+        self.modules = [Layer(sizes[i], sizes[i + 1]) for i in range(len(sizes) - 1)]
 
     def forward(self, x):
         return reduce(lambda x, layer: layer.forward(x), self.modules, x)
@@ -76,7 +75,7 @@ def fit(n, loss, epochs, learning_rate):
         print(k, loss.data)
 
 
-n = MultiLayerPerceptron(3, [4, 4, 1])
+n = MultiLayerPerceptron([3, 4, 4, 1])
 xs = [
     [Value(2), Value(3), Value(-1)],
     [Value(3), Value(-1), Value(0.5)],
